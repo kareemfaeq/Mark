@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>درجات الطلاب</title>
+<style>
+  :root{
+    --bg:#eef3f1; --card:#ffffff; --ink:#17302a; --muted:#5d7770;
+    --accent:#1f6f5c; --accent-ink:#ffffff; --line:#cfdcd7; --err:#b3261e;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#10201c;--card:#18302a;--ink:#e6f2ee;--muted:#9bb8b0;--accent:#4fb59a;--accent-ink:#08201a;--line:#2c4a42;--err:#ff8a80;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);
+       font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic",Arial,sans-serif;padding:20px}
+  .box{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px}
+  h1{margin:0 0 6px;font-size:1.5rem}
+  p{margin:0 0 18px;color:var(--muted)}
+  label{display:block;margin-bottom:6px;font-weight:600}
+  input{width:100%;padding:12px;font-size:1.1rem;border:1px solid var(--line);border-radius:8px;
+        background:var(--bg);color:var(--ink);font-family:inherit}
+  select,textarea{width:100%;padding:12px;font-size:1rem;border:1px solid var(--line);border-radius:8px;
+        background:var(--bg);color:var(--ink);font-family:inherit}
+  textarea{min-height:110px;resize:vertical}
+  .field{margin-top:14px}
+  .badge{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:600;font-size:.95rem;
+         border:1px solid var(--line)}
+  .badge.yes{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .badge.no{color:var(--err);border-color:var(--err)}
+  input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+  button{padding:12px 18px;font-size:1rem;border:0;border-radius:8px;background:var(--accent);
+         color:var(--accent-ink);cursor:pointer;font-family:inherit;font-weight:600}
+  .row{display:flex;gap:10px;margin-top:14px}
+  .row button{flex:1}
+  .ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .error{color:var(--err);min-height:1.4em;margin-top:10px}
+  .hidden{display:none}
+  .name{font-size:1.6rem;font-weight:700;margin:0 0 4px}
+  .grade{font-size:3rem;font-weight:700;color:var(--accent);margin:10px 0}
+  .ok{color:var(--accent);min-height:1.4em;margin-top:10px}
+</style>
+</head>
+<body>
+<main class="box">
+
+  <!-- صفحة إدخال الرقم -->
+  <section id="loginView">
+    <h1>درجات الطلاب</h1>
+    <p>اكتب رقم الطالب لعرض درجته.</p>
+    <label for="numInput">رقم الطالب</label>
+    <input id="numInput" type="number" min="1" inputmode="numeric" autofocus>
+    <div class="error" id="err"></div>
+    <div class="row"><button id="enterBtn">دخول</button></div>
+  </section>
+
+  <!-- صفحة الطالب -->
+  <section id="studentView" class="hidden">
+    <p class="name" id="stName"></p>
+    <p>رقم الطالب: <span id="stNum"></span></p>
+    <div class="grade"><span id="stGrade"></span> / 100</div>
+    <span class="badge" id="stHome"></span>
+
+    <label for="gradeInput">تعديل الدرجة</label>
+    <input id="gradeInput" type="number" min="0" max="100" inputmode="numeric">
+
+    <div class="field">
+      <label for="homeInput">هل يعمل في المنزل؟</label>
+      <select id="homeInput">
+        <option value="">لم يتم التحديد</option>
+        <option value="yes">يعمل</option>
+        <option value="no">لا يعمل</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="noteInput">ملاحظات</label>
+      <textarea id="noteInput" placeholder="اكتب ملاحظاتك عن الطالب هنا..."></textarea>
+    </div>
+
+    <div class="ok" id="ok"></div>
+    <div class="row">
+      <button id="saveBtn">حفظ</button>
+      <button id="backBtn" class="ghost">رجوع</button>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  // الطلاب وأرقامهم ودرجاتهم الابتدائية (غيّر الدرجات كما تريد)
+  const defaultStudents = {
+    1: { name: "كريم",  grade: 0, home: "", note: "" },
+    2: { name: "زينب",  grade: 0, home: "", note: "" },
+    3: { name: "تهاني", grade: 0, home: "", note: "" },
+    4: { name: "فائق",  grade: 0, home: "", note: "" },
+    5: { name: "محمد",  grade: 0, home: "", note: "" }
+  };
+
+  const KEY = "studentGrades2";
+  let students = JSON.parse(JSON.stringify(defaultStudents));
+
+  // تحميل البيانات المحفوظة (إن وجدت)
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY));
+    if (saved) for (const id in saved) if (students[id]) Object.assign(students[id], saved[id]);
+  } catch (e) {}
+
+  function persist(){
+    try {
+      const out = {};
+      for (const id in students) {
+        const s = students[id];
+        out[id] = { grade: s.grade, home: s.home, note: s.note };
+      }
+      localStorage.setItem(KEY, JSON.stringify(out));
+    } catch (e) {}
+  }
+
+  function homeText(v){ return v === "yes" ? "يعمل في المنزل" : v === "no" ? "لا يعمل في المنزل" : "لم يتم التحديد"; }
+  function showHome(v){
+    const b = $("stHome");
+    b.textContent = homeText(v);
+    b.className = "badge" + (v === "yes" ? " yes" : v === "no" ? " no" : "");
+  }
+
+  const $ = id => document.getElementById(id);
+  let current = null;
+
+  function login(){
+    const id = $("numInput").value.trim();
+    if (!students[id]) { $("err").textContent = "الرقم غير صحيح. حاول مرة أخرى."; return; }
+    current = id;
+    $("err").textContent = "";
+    $("stName").textContent = students[id].name;
+    $("stNum").textContent = id;
+    $("stGrade").textContent = students[id].grade;
+    $("gradeInput").value = students[id].grade;
+    $("homeInput").value = students[id].home;
+    $("noteInput").value = students[id].note;
+    showHome(students[id].home);
+    $("ok").textContent = "";
+    $("loginView").classList.add("hidden");
+    $("studentView").classList.remove("hidden");
+  }
+
+  function save(){
+    const v = Number($("gradeInput").value);
+    if ($("gradeInput").value === "" || v < 0 || v > 100) {
+      $("ok").textContent = "أدخل درجة بين 0 و 100.";
+      return;
+    }
+    students[current].grade = v;
+    students[current].home = $("homeInput").value;
+    students[current].note = $("noteInput").value;
+    persist();
+    $("stGrade").textContent = v;
+    showHome(students[current].home);
+    $("ok").textContent = "تم حفظ البيانات.";
+  }
+
+  function back(){
+    $("studentView").classList.add("hidden");
+    $("loginView").classList.remove("hidden");
+    $("numInput").value = "";
+    $("numInput").focus();
+  }
+
+  $("enterBtn").addEventListener("click", login);
+  $("numInput").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+  $("saveBtn").addEventListener("click", save);
+  $("gradeInput").addEventListener("keydown", e => { if (e.key === "Enter") save(); });
+  $("backBtn").addEventListener("click", back);
+</script>
+</body>
+</html>
